@@ -64,14 +64,14 @@ saveButton.addEventListener("click", async () => {
 
 deleteButton.addEventListener("click", async () => {
   if (!hasExtensionRuntime) return;
-  if (!window.confirm("确定断开 DeepSeek 并清除本次会话中的 Key 吗？")) return;
+  if (!window.confirm("确定断开 DeepSeek 并清除浏览器中保存的 Key 吗？")) return;
   setBusy(true);
   try {
     const response = await chrome.runtime.sendMessage({ type: "DEEPSEEK_DELETE_KEY" });
     if (!response?.ok) throw new Error(response?.error || "清除失败。");
     input.value = "";
     setConnection(false);
-    setMessage("已断开并从会话内存中清除 Key。", "success");
+    setMessage("已断开并从当前 Chrome 中清除 Key。", "success");
   } catch (error) {
     setMessage(error?.message || String(error), "error");
   } finally {
@@ -84,9 +84,9 @@ async function refreshStatus() {
     const response = await chrome.runtime.sendMessage({ type: "DEEPSEEK_KEY_STATUS" });
     setConnection(Boolean(response?.configured));
     if (response?.configured) {
-      setMessage("Key 已保存在本次 Chrome 会话内存中。", "success");
+      setMessage("Key 已由当前 Chrome 长期保存，重启浏览器后仍可使用。", "success");
     } else {
-      setMessage("尚未连接。粘贴 Key 后点击“验证并用于本次会话”。", "idle");
+      setMessage("尚未连接。粘贴 Key 后点击“验证并永久保存”。", "idle");
     }
   } catch (error) {
     setConnection(false, true);

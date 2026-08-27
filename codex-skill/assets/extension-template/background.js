@@ -2,7 +2,7 @@
 
 const DEEPSEEK_API_BASE = "https://api.deepseek.com";
 const DEEPSEEK_MODEL = "deepseek-v4-flash";
-const API_KEY_SESSION_KEY = "deepseekApiKey";
+const API_KEY_LOCAL_KEY = "deepseekApiKey";
 const HEALTH_TIMEOUT_MS = 10000;
 const TRANSLATE_TIMEOUT_MS = 45000;
 const MAX_SOURCE_LENGTH = 12000;
@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "DEEPSEEK_KEY_STATUS") {
-    getSessionApiKey()
+    getStoredApiKey()
       .then((apiKey) => sendResponse({ ok: true, configured: Boolean(apiKey) }))
       .catch((error) => sendResponse({ ok: false, configured: false, error: safeErrorMessage(error) }));
     return true;
@@ -44,11 +44,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     validateDeepSeekKey(apiKey)
       .then(async (model) => {
-        await chrome.storage.session.set({ [API_KEY_SESSION_KEY]: apiKey });
+        await chrome.storage.local.set({ [API_KEY_LOCAL_KEY]: apiKey });
         sendResponse({ ok: true, configured: true, model });
       })
       .catch(async (error) => {
-        const existingKey = await getSessionApiKey().catch(() => "");
+        const existingKey = await getStoredApiKey().catch(() => "");
         sendResponse({
           ok: false,
           configured: Boolean(existingKey),
@@ -59,15 +59,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "DEEPSEEK_DELETE_KEY") {
-    chrome.storage.session
-      .remove(API_KEY_SESSION_KEY)
+    chrome.storage.local
+      .remove(API_KEY_LOCAL_KEY)
       .then(() => sendResponse({ ok: true, configured: false }))
       .catch((error) => sendResponse({ ok: false, error: safeErrorMessage(error) }));
     return true;
   }
 
   if (message.type === "DEEPSEEK_HEALTH") {
-    getSessionApiKey()
+    getStoredApiKey()
       .then(async (apiKey) => {
         if (!apiKey) {
           sendResponse({
@@ -93,7 +93,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return;
     }
 
-    getSessionApiKey()
+    getStoredApiKey()
       .then(async (apiKey) => {
         if (!apiKey) throw new Error("DEEPSEEK_KEY_MISSING: 尚未配置 DeepSeek API Key。");
         const result = await translateWithDeepSeek(source, apiKey);
@@ -104,9 +104,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-async function getSessionApiKey() {
-  const stored = await chrome.storage.session.get(API_KEY_SESSION_KEY);
-  return sanitizeApiKey(stored?.[API_KEY_SESSION_KEY]);
+async function getStoredApiKey() {
+  const stored = await chrome.storage.local.get(API_KEY_LOCAL_KEY);
+  return sanitizeApiKey(stored?.[API_KEY_LOCAL_KEY]);
 }
 
 async function validateDeepSeekKey(apiKey) {

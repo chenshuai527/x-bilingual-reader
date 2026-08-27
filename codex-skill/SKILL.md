@@ -29,12 +29,12 @@ After generation, adapt the copied files in the output directory when the user r
 - Insert translations with `textContent`, never API-supplied `innerHTML`.
 - Let the user select a sentence, save an English-Chinese record in extension-local storage, and export all saved records as a real `.docx` file.
 - Keep permissions limited to the requested sites. Do not use `<all_urls>` by default.
-- Never embed a developer-owned cloud API secret. For a user-supplied DeepSeek Key, collect it on an extension options page and keep it only in `chrome.storage.session`, which is memory-only and not exposed to content scripts by default. Send it only from the service worker to the official DeepSeek HTTPS API. Make clear that users re-enter it after a full browser restart or extension reload.
+- Never embed a developer-owned cloud API secret. For a user-supplied DeepSeek Key, collect it on an extension options page and persist it in `chrome.storage.local` so one successful entry survives browser restarts and extension updates. Send it only from the service worker to the official DeepSeek HTTPS API; never return it in messages, logs, exports, source files, or sync storage. Provide an explicit “断开并清除 Key” action and disclose that uninstalling the extension or clearing extension data removes it.
 - Treat page text as untrusted input and do not execute code received from the page or translation service.
 
 ## Translation engine
 
-The bundled public template uses the user's own DeepSeek API Key from a dedicated options page. Validate the Key with the official `/models` endpoint before storing it in session memory. Default to `deepseek-v4-flash`, disable thinking mode for translation latency, send only the page text that needs translation, and treat that text as untrusted data in the prompt. Never return the Key to a content script, log it, sync it, or write it to disk.
+The bundled public template uses the user's own DeepSeek API Key from a dedicated options page. Validate the Key with the official `/models` endpoint before storing it in the current Chrome profile's extension-local storage. Default to `deepseek-v4-flash`, disable thinking mode for translation latency, send only the page text that needs translation, and treat that text as untrusted data in the prompt. Never return the Key to a content script, log it, sync it to other devices, or include it in a release artifact.
 
 Use `https://api.deepseek.com/*` as the narrow host permission. Clicking the extension action and the in-page settings button should open the options page. Present a visible disclosure that translated webpage text is sent to DeepSeek and that the user's account incurs API usage.
 
@@ -78,7 +78,7 @@ After creating or changing a project:
 
 Distinguish expected security behavior from actual defects before changing the extension:
 
-- **DeepSeek shows disconnected after a full Chrome restart or extension reload:** this is expected while the Key is stored in `chrome.storage.session`. Ask the user to enter it again; do not silently move it to persistent storage.
+- **DeepSeek shows disconnected after a full Chrome restart or extension update:** treat this as a persistence regression. Confirm the validated Key was written to `chrome.storage.local`, that status reads the same key after the service worker restarts, and that no update or initialization path clears it.
 - **Some X posts, quoted posts, or article cards are not translated:** treat this as a site-adapter selector regression. Reproduce it on the current X DOM, prefer stable semantic selectors, and avoid broad selectors that duplicate usernames, controls, or metadata.
 - **Translations become increasingly slow on a long feed:** inspect queue depth, visibility filtering, caching, and request timeouts. Keep Chrome Translator work serialized, but do not let one failed or timed-out item block later items indefinitely.
 - **A brief DeepSeek network failure permanently switches the session to Chrome fallback:** treat this as a provider-state defect. A transient failure may use the local model for that request, but offer a bounded DeepSeek retry or restore the preferred provider when the user re-enables translation.

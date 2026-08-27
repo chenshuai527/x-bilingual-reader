@@ -13,16 +13,16 @@
       <div>
         <p class="eyebrow">英汉同步阅读</p>
         <h1>连接你的 DeepSeek API</h1>
-        <p class="lede">无需 Node 或本地代理。Key 只保存在本次 Chrome 会话内存中，并且只发送给 DeepSeek 官方 API。</p>
+        <p class="lede">无需 Node 或本地代理。Key 会保存在当前 Chrome 浏览器中，并且只发送给 DeepSeek 官方 API。</p>
       </div>
-      <span class="session-badge">仅本次会话</span>
+      <span class="session-badge">本机长期保存</span>
     </header>
 
     <section class="card" aria-labelledby="connection-title">
       <div class="section-heading">
         <div>
           <h2 id="connection-title">DeepSeek 连接</h2>
-          <p>每次完全重启 Chrome 后需要重新输入一次，不需要每个网页重复输入。</p>
+          <p>验证一次后由当前 Chrome 记住，重启浏览器无需再次输入。</p>
         </div>
         <div class="connection-state" id="connection-state" data-state="idle">
           <span class="state-dot" aria-hidden="true"></span>
@@ -38,7 +38,7 @@
       <p class="hint">不要使用列表中带 ***** 的脱敏 Key，也不要把完整 Key 发给任何人。</p>
 
       <div class="actions">
-        <button id="save-key" class="primary" type="button">验证并用于本次会话</button>
+        <button id="save-key" class="primary" type="button">验证并永久保存</button>
         <button id="delete-key" class="secondary" type="button">断开并清除 Key</button>
       </div>
       <div id="message" class="message" role="status" aria-live="polite"></div>
@@ -64,4 +64,3 @@
   </main>
 </body>
 </html>
-
