@@ -16,6 +16,21 @@
 - 将收藏内容导出为 Word（DOCX）文件
 - API Key 只保存在浏览器临时会话中，不上传给扩展作者
 
+## 功能展示
+
+### 实时英汉翻译
+
+| 普通动态与视频内容 | 引用动态与长文本 |
+| --- | --- |
+| ![普通动态实时翻译](docs/screenshots/translation-1.png) | ![引用动态实时翻译](docs/screenshots/translation-2.png) |
+| ![视频动态实时翻译](docs/screenshots/translation-3.png) | ![长文本实时翻译](docs/screenshots/translation-4.png) |
+
+### 语句收藏与 Word 导出
+
+| 划词收藏 | 导出的 DOCX 文档 |
+| --- | --- |
+| ![划词收藏英汉语句](docs/screenshots/favorites.png) | ![英汉语句 DOCX 导出结果](docs/screenshots/docx-export.png) |
+
 ## 安装
 
 1. 打开本仓库的 [Releases](../../releases) 页面。
