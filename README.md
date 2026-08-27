@@ -50,6 +50,17 @@
 
 API Key 使用 `chrome.storage.session` 保存，只存在于当前浏览器会话中。完全退出 Chrome、重新加载扩展或更新扩展后，需要再次输入。这是为了避免把长期密钥写入磁盘。
 
+## Codex Skill（开发者可选）
+
+仓库中的 [`codex-skill`](codex-skill) 用于让 Codex 创建、修改和检查此类英汉同步阅读扩展，并包含常见故障排查规则。普通浏览器用户不需要安装它。
+
+1. 从 Releases 下载 `bilingual-web-extension-skill-v0.6.0.zip`。
+2. 解压后确认目录内直接包含 `SKILL.md`、`scripts` 和 `assets`。
+3. 将整个 `bilingual-web-extension` 文件夹放入 Codex 的 Skills 目录。
+4. 重新启动 Codex 后，通过 `$bilingual-web-extension` 使用。
+
+这个 Skill 不能通过 `chrome://extensions/` 加载；浏览器插件应下载 `x-bilingual-reader-webstore-v0.6.0.zip`。
+
 ## 隐私与费用
 
 - 开启翻译后，待翻译文本会直接从浏览器发送到 DeepSeek API。

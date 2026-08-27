@@ -1,0 +1,4 @@
+interface:
+  display_name: "英汉同步网页扩展"
+  short_description: "生成英汉对照、划词收藏和 Word 导出的浏览器扩展"
+  default_prompt: "使用 $bilingual-web-extension 生成一个支持 X 动态帖子、用户自备 DeepSeek Key、划词收藏和 DOCX 导出的英汉同步阅读扩展。"

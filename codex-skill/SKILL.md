@@ -1,0 +1,97 @@
+---
+name: bilingual-web-extension
+description: Create, adapt, and test a Chrome or Edge Manifest V3 extension that keeps English web content visible, inserts Chinese translations, collects selected quotes locally, and exports DOCX, especially for dynamic X/Twitter feeds. Use for bilingual webpage-reading extensions; not for one-off text translation or Codex plugins.
+---
+
+# Bilingual Web Extension
+
+Build a loadable browser extension that preserves source text and adds a Chinese translation near the matching content. Default to the bundled X/Twitter template when the user has not specified another site.
+
+## Create the extension
+
+Run the bundled generator from this skill directory:
+
+```powershell
+python scripts/create_extension.py --target <output-directory>
+```
+
+The generator intentionally refuses to overwrite a non-empty directory. Do not remove or overwrite an existing project unless the user explicitly requests it and the exact target has been verified.
+
+After generation, adapt the copied files in the output directory when the user requests another site, visual treatment, translation provider, or feature. Never edit the template merely to customize one generated project.
+
+## Required behavior
+
+- Preserve the original English text; add Chinese below or beside it.
+- For X/Twitter, cover post text, top feed tabs, and article-card text. Keep site selectors isolated in `SITE_ADAPTERS` so breakage is easy to repair.
+- Handle React/infinite-scroll updates with `MutationObserver` and process only visible items with `IntersectionObserver`.
+- Detect recycled DOM nodes by comparing current source text, rather than permanently marking an element as finished.
+- Queue translations sequentially. Chrome's Translator API serializes work and large bursts make the page feel frozen.
+- Insert translations with `textContent`, never API-supplied `innerHTML`.
+- Let the user select a sentence, save an English-Chinese record in extension-local storage, and export all saved records as a real `.docx` file.
+- Keep permissions limited to the requested sites. Do not use `<all_urls>` by default.
+- Never embed a developer-owned cloud API secret. For a user-supplied DeepSeek Key, collect it on an extension options page and keep it only in `chrome.storage.session`, which is memory-only and not exposed to content scripts by default. Send it only from the service worker to the official DeepSeek HTTPS API. Make clear that users re-enter it after a full browser restart or extension reload.
+- Treat page text as untrusted input and do not execute code received from the page or translation service.
+
+## Translation engine
+
+The bundled public template uses the user's own DeepSeek API Key from a dedicated options page. Validate the Key with the official `/models` endpoint before storing it in session memory. Default to `deepseek-v4-flash`, disable thinking mode for translation latency, send only the page text that needs translation, and treat that text as untrusted data in the prompt. Never return the Key to a content script, log it, sync it, or write it to disk.
+
+Use `https://api.deepseek.com/*` as the narrow host permission. Clicking the extension action and the in-page settings button should open the options page. Present a visible disclosure that translated webpage text is sent to DeepSeek and that the user's account incurs API usage.
+
+Use Chrome's built-in `Translator` API as the local fallback. It supports desktop Chrome, keeps text local, and may download a language model on first use. Create it from the content-script document context, not a service worker. Feature-detect the API and present a visible message when neither DeepSeek nor Chrome's local model is available.
+
+Use `sourceLanguage: "en"` and `targetLanguage: "zh"` for the Chrome fallback. Skip content that is empty, already mostly Chinese, or clearly lacks English letters. Split unusually long posts before translation.
+
+## Quote collection and DOCX
+
+- Show a compact “收藏这句” action near a valid page-text selection. Do not capture text from the extension's own interface.
+- Save English, Chinese, page URL, page title, and timestamp in `chrome.storage.local`. De-duplicate exact bilingual pairs and cap the collection to a documented reasonable limit.
+- Generate DOCX locally with bundled code and no remote library. Escape all text before placing it in OOXML.
+- Include readable English, Chinese, source URL, and saved time. Keep deletion behind a clear confirmation because it is irreversible.
+- Tell the user that uninstalling the extension or clearing its data can remove unexported favorites.
+
+## Site adaptation
+
+For a new site:
+
+1. Add the smallest necessary match patterns to `manifest.json`.
+2. Add a site adapter with stable semantic selectors before considering generated CSS class names.
+3. Verify initial content, newly appended content, client-side navigation, and DOM node recycling.
+4. Exclude editable fields, navigation labels, code blocks, usernames, URLs, and the extension's own UI unless the user asks to translate them.
+
+Treat video subtitles, OCR text inside images, and webpage DOM text as separate capabilities. Do not claim the default template translates video captions or image text.
+
+## Validation
+
+After creating or changing a project:
+
+1. Parse `manifest.json`.
+2. Run JavaScript syntax checks on every `.js` file.
+3. Confirm there is no remote executable code and no embedded credential.
+4. Confirm the declared content-script files exist.
+5. Exercise Key status, validation, translation, API-error mapping, and Key deletion with a mocked service-worker test; structurally inspect a generated DOCX package.
+6. Confirm the public ZIP excludes local proxy scripts, credentials, caches, and other development-only files.
+7. Give the user the exact unpacked-extension loading steps from `EXPERIMENT.md`.
+8. State clearly when live visual testing in Chrome/Edge or a real paid DeepSeek API call has not been performed.
+
+## Common failures and triage
+
+Distinguish expected security behavior from actual defects before changing the extension:
+
+- **DeepSeek shows disconnected after a full Chrome restart or extension reload:** this is expected while the Key is stored in `chrome.storage.session`. Ask the user to enter it again; do not silently move it to persistent storage.
+- **Some X posts, quoted posts, or article cards are not translated:** treat this as a site-adapter selector regression. Reproduce it on the current X DOM, prefer stable semantic selectors, and avoid broad selectors that duplicate usernames, controls, or metadata.
+- **Translations become increasingly slow on a long feed:** inspect queue depth, visibility filtering, caching, and request timeouts. Keep Chrome Translator work serialized, but do not let one failed or timed-out item block later items indefinitely.
+- **A brief DeepSeek network failure permanently switches the session to Chrome fallback:** treat this as a provider-state defect. A transient failure may use the local model for that request, but offer a bounded DeepSeek retry or restore the preferred provider when the user re-enables translation.
+- **Key validation succeeds but translation reports an unavailable model:** ensure the model selected from `/models` is the same model sent to `/chat/completions`. Do not validate one model and then hard-code a different unavailable model.
+- **A favorite contains English but no Chinese:** this can happen when no provider is active or translation fails while saving. Preserve the English instead of losing the quote, and show an explicit partial-save message.
+- **The Word export button is disabled:** this is expected when the collection is empty. Keep the empty-state explanation visible.
+- **Chrome local fallback cannot start:** check Translator API availability, supported language-pair status, browser version, user activation, and model-download state; do not claim every Chrome installation supports it.
+- **Older favorites disappear after the collection limit:** make the configured cap visible and warn when the oldest record is evicted instead of removing it silently.
+
+Prioritize model consistency, provider recovery, and a blocked translation queue ahead of cosmetic issues. When reporting a failure, include the affected page pattern, selected provider, visible error, reproduction steps, and whether the result was verified in a real browser or only with mocks.
+
+For current platform behavior, prefer the official Chrome documentation:
+
+- https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts
+- https://developer.chrome.com/docs/ai/translator-api
+- https://developer.chrome.com/docs/extensions/develop/security-privacy/user-privacy
