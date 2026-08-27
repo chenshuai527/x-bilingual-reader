@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>英汉同步阅读 · DeepSeek 设置</title>
+  <link rel="stylesheet" href="options.css">
+  <script src="options.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">英汉同步阅读</p>
+        <h1>连接你的 DeepSeek API</h1>
+        <p class="lede">无需 Node 或本地代理。Key 只保存在本次 Chrome 会话内存中，并且只发送给 DeepSeek 官方 API。</p>
+      </div>
+      <span class="session-badge">仅本次会话</span>
+    </header>
+
+    <section class="card" aria-labelledby="connection-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="connection-title">DeepSeek 连接</h2>
+          <p>每次完全重启 Chrome 后需要重新输入一次，不需要每个网页重复输入。</p>
+        </div>
+        <div class="connection-state" id="connection-state" data-state="idle">
+          <span class="state-dot" aria-hidden="true"></span>
+          <span id="connection-label">正在检查…</span>
+        </div>
+      </div>
+
+      <label for="api-key">DeepSeek API Key</label>
+      <div class="key-row">
+        <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴完整的 API Key">
+        <button id="toggle-visibility" class="icon-button" type="button" aria-label="显示 Key">显示</button>
+      </div>
+      <p class="hint">不要使用列表中带 ***** 的脱敏 Key，也不要把完整 Key 发给任何人。</p>
+
+      <div class="actions">
+        <button id="save-key" class="primary" type="button">验证并用于本次会话</button>
+        <button id="delete-key" class="secondary" type="button">断开并清除 Key</button>
+      </div>
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="card compact" aria-labelledby="flow-title">
+      <h2 id="flow-title">翻译时会发生什么</h2>
+      <div class="flow" aria-label="数据流">
+        <span>X 页面英文</span><b>→</b><span>扩展后台</span><b>→</b><span>DeepSeek 官方 API</span><b>→</b><span>中文译文</span>
+      </div>
+      <ul>
+        <li>只在启用英汉同步后发送需要翻译的网页文字。</li>
+        <li>收藏内容和导出的 Word 文档保留在用户本机。</li>
+        <li>扩展开发者不接收 Key、网页文字或收藏内容。</li>
+      </ul>
+    </section>
+
+    <footer>
+      <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer">创建 DeepSeek API Key</a>
+      <span>·</span>
+      <a href="https://api-docs.deepseek.com/" target="_blank" rel="noreferrer">DeepSeek API 文档</a>
+    </footer>
+  </main>
+</body>
+</html>
+
