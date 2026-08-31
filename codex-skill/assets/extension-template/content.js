@@ -20,6 +20,26 @@
     ["Entertainment", "娱乐"]
   ]);
 
+  const X_ARTICLE_CONTENT_SELECTORS = [
+    '[data-testid="twitterArticleReadView"] [data-testid="twitter-article-title"]',
+    '[data-testid="twitterArticleReadView"] .longform-header-one',
+    '[data-testid="twitterArticleReadView"] .longform-header-one-narrow',
+    '[data-testid="twitterArticleReadView"] .longform-header-two',
+    '[data-testid="twitterArticleReadView"] .longform-header-two-narrow',
+    '[data-testid="twitterArticleReadView"] .longform-unstyled',
+    '[data-testid="twitterArticleReadView"] .longform-unstyled-narrow',
+    '[data-testid="twitterArticleReadView"] .longform-blockquote',
+    '[data-testid="twitterArticleReadView"] .longform-blockquote-narrow',
+    '[data-testid="twitterArticleReadView"] .longform-unordered-list-item',
+    '[data-testid="twitterArticleReadView"] .longform-unordered-list-item-narrow',
+    '[data-testid="twitterArticleReadView"] .longform-ordered-list-item',
+    '[data-testid="twitterArticleReadView"] .longform-ordered-list-item-narrow',
+    '[data-testid="twitterArticleReadView"] section[data-block="true"]',
+    '[data-testid="twitterArticleRichTextView"] [data-testid="longformRichTextComponent"] p',
+    '[data-testid="twitterArticleRichTextView"] [data-testid="longformRichTextComponent"] li',
+    '[data-testid="twitterArticleRichTextView"] [data-testid="longformRichTextComponent"] blockquote'
+  ];
+
   const SITE_ADAPTERS = [
     {
       hosts: new Set(["x.com", "www.x.com", "twitter.com", "www.twitter.com"]),
@@ -35,7 +55,8 @@
         'article h2',
         'article h3',
         'article p',
-        'article a[role="link"]'
+        'article a[role="link"]',
+        ...X_ARTICLE_CONTENT_SELECTORS
       ].join(","),
       uiSelector: '[role="tab"], nav a, nav button'
     }
@@ -606,7 +627,11 @@
       }
 
       const source = getSourceText(element);
-      return source.length >= 20 && shouldTranslate(source);
+      const insideArticleReadView = Boolean(
+        element.closest('[data-testid="twitterArticleReadView"]')
+      );
+      const minimumLength = insideArticleReadView ? 3 : 20;
+      return source.length >= minimumLength && shouldTranslate(source);
     });
 
     // X cards can expose nested dir="auto" containers. Translate the deepest

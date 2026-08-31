@@ -22,7 +22,7 @@ After generation, adapt the copied files in the output directory when the user r
 ## Required behavior
 
 - Preserve the original English text; add Chinese below or beside it.
-- For X/Twitter, cover post text, top feed tabs, and article-card text. Keep site selectors isolated in `SITE_ADAPTERS` so breakage is easy to repair.
+- For X/Twitter, cover post text, top feed tabs, article-card text, and full X Article read views. For article details, recognize `twitterArticleReadView`, `twitterArticleRichTextView`, `longformRichTextComponent`, `section[data-block="true"]`, and the current longform heading, paragraph, blockquote, and list-item classes. Keep site selectors isolated so breakage is easy to repair.
 - Handle React/infinite-scroll updates with `MutationObserver` and process only visible items with `IntersectionObserver`.
 - Detect recycled DOM nodes by comparing current source text, rather than permanently marking an element as finished.
 - Queue translations sequentially. Chrome's Translator API serializes work and large bursts make the page feel frozen.
@@ -79,7 +79,7 @@ After creating or changing a project:
 Distinguish expected security behavior from actual defects before changing the extension:
 
 - **DeepSeek shows disconnected after a full Chrome restart or extension update:** treat this as a persistence regression. Confirm the validated Key was written to `chrome.storage.local`, that status reads the same key after the service worker restarts, and that no update or initialization path clears it.
-- **Some X posts, quoted posts, or article cards are not translated:** treat this as a site-adapter selector regression. Reproduce it on the current X DOM, prefer stable semantic selectors, and avoid broad selectors that duplicate usernames, controls, or metadata.
+- **Some X posts, quoted posts, article cards, or article-body blocks are not translated:** treat this as a site-adapter selector regression. For X Articles, separately verify the title, ordinary paragraphs, subheadings, blockquotes, and ordered/unordered lists inside the longform read view. Prefer stable semantic selectors and avoid broad selectors that duplicate usernames, controls, or metadata.
 - **Translations become increasingly slow on a long feed:** inspect queue depth, visibility filtering, caching, and request timeouts. Keep Chrome Translator work serialized, but do not let one failed or timed-out item block later items indefinitely.
 - **A brief DeepSeek network failure permanently switches the session to Chrome fallback:** treat this as a provider-state defect. A transient failure may use the local model for that request, but offer a bounded DeepSeek retry or restore the preferred provider when the user re-enables translation.
 - **Key validation succeeds but translation reports an unavailable model:** ensure the model selected from `/models` is the same model sent to `/chat/completions`. Do not validate one model and then hard-code a different unavailable model.

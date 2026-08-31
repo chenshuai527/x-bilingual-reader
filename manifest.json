@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "英汉同步阅读实验版",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "X 英汉同步阅读、划词收藏和 DOCX 导出；用户自备 DeepSeek Key，Chrome 本地模型备用。",
   "permissions": ["storage"],
   "host_permissions": ["https://api.deepseek.com/*"],
