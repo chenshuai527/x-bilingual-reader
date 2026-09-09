@@ -25,7 +25,9 @@
 
 DeepSeek Key 用于英译中，Groq Key 用于视频英语语音识别；Key 验证后长期保存在当前 Chrome 中。
 
-![DeepSeek API 设置界面](docs/settings-preview.png)
+| DeepSeek 与 Groq 连接 | Groq Key 与视频翻译数据流 |
+| --- | --- |
+| ![DeepSeek 与 Groq API 均已连接](docs/screenshots/api-settings-deepseek-groq-v0.7.2.png) | ![Groq API Key 设置和视频翻译数据流](docs/screenshots/api-settings-groq-flow-v0.7.2.png) |
 
 ### 视频英语对白双语字幕
 
