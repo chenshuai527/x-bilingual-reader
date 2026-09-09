@@ -5,7 +5,7 @@
 > 当前版本：v0.7.2（实验版）
 > 当前支持：`x.com`、`twitter.com`
 
-![DeepSeek 设置页](docs/settings-preview.png)
+![英汉同步阅读 v0.7.2 视频翻译控制面板](docs/screenshots/video-control-v0.7.2.png)
 
 ## 主要功能
 
@@ -20,6 +20,12 @@
 - 两个 API Key 均长期保存在当前浏览器中，不上传给扩展作者
 
 ## 功能展示
+
+### 视频英语对白双语字幕
+
+启动后捕获当前 X 标签页声音：Groq 识别英文对白，DeepSeek 在下方生成中文译文。
+
+![X 视频英语对白与中文翻译字幕](docs/screenshots/video-bilingual-captions-v0.7.2.png)
 
 ### 实时英汉翻译
 
