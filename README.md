@@ -21,6 +21,12 @@
 
 ## 功能展示
 
+### API 设置
+
+DeepSeek Key 用于英译中，Groq Key 用于视频英语语音识别；Key 验证后长期保存在当前 Chrome 中。
+
+![DeepSeek API 设置界面](docs/settings-preview.png)
+
 ### 视频英语对白双语字幕
 
 启动后捕获当前 X 标签页声音：Groq 识别英文对白，DeepSeek 在下方生成中文译文。
