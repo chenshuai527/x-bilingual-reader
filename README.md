@@ -2,7 +2,7 @@
 
 一款面向 X（Twitter）的 Chrome 英汉双语阅读扩展。它会在英文内容下方显示中文翻译，并支持划词收藏与 Word（DOCX）导出。
 
-> 当前版本：v0.7.4（实验版）
+> 当前版本：v0.7.5（实验版）
 > 当前支持：`x.com`、`twitter.com`
 
 ![英汉同步阅读视频翻译控制面板](docs/screenshots/video-control-v0.7.2.png)
@@ -13,7 +13,7 @@
 - X 文章详情页的标题、正文、小标题、引用和列表同步翻译
 - 点击后捕获当前 X 标签页声音，约每 4 秒生成一组英汉双语视频字幕
 - Groq 识别完成后先显示英文，再补上 DeepSeek 中文译文；最多并行处理两段，避免慢请求造成持续积压
-- 双语字幕条自动跟随当前播放视频，并与视频左右边缘对齐
+- 双语字幕区显示在当前播放视频下方，与视频左右边缘对齐，不遮挡画面和播放控件
 - DeepSeek 作为主要翻译模型
 - Groq Whisper Large V3 Turbo 负责视频英语语音识别
 - Chrome 本地翻译模型作为备用方案
@@ -57,7 +57,7 @@ DeepSeek Key 用于英译中，Groq Key 用于视频英语语音识别；Key 验
 ## 安装
 
 1. 打开本仓库的 [Releases](../../releases) 页面。
-2. 下载 `x-bilingual-reader-webstore-v0.7.4.zip`。
+2. 下载 `x-bilingual-reader-webstore-v0.7.5.zip`。
 3. 将 ZIP 完整解压到一个固定文件夹，不要直接选择 ZIP。
 4. 在 Chrome 地址栏打开 `chrome://extensions/`。
 5. 打开右上角“开发者模式”。
@@ -86,12 +86,12 @@ API Key 使用 `chrome.storage.local` 保存在当前 Chrome 的扩展本地存�
 
 仓库中的 [`codex-skill`](codex-skill) 用于让 Codex 创建、修改和检查此类英汉同步阅读扩展，并包含常见故障排查规则。普通浏览器用户不需要安装它。
 
-1. 从 Releases 下载 `bilingual-web-extension-skill-v0.7.4.zip`。
+1. 从 Releases 下载 `bilingual-web-extension-skill-v0.7.5.zip`。
 2. 解压后确认目录内直接包含 `SKILL.md`、`scripts` 和 `assets`。
 3. 将整个 `bilingual-web-extension` 文件夹放入 Codex 的 Skills 目录。
 4. 重新启动 Codex 后，通过 `$bilingual-web-extension` 使用。
 
-这个 Skill 不能通过 `chrome://extensions/` 加载；浏览器插件应下载 `x-bilingual-reader-webstore-v0.7.4.zip`。
+这个 Skill 不能通过 `chrome://extensions/` 加载；浏览器插件应下载 `x-bilingual-reader-webstore-v0.7.5.zip`。
 
 ## 隐私与费用
 

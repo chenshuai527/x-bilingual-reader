@@ -337,25 +337,55 @@
         })[0] || null;
     }
 
+    function findFlowContainer(video, videoRect) {
+      const article = video.closest("article");
+      let container = video.closest('[data-testid="videoPlayer"]') || video;
+      let candidate = container.parentElement;
+
+      while (candidate && candidate !== article && candidate !== document.body && candidate !== document.documentElement) {
+        const rect = candidate.getBoundingClientRect();
+        const sameMediaBand =
+          Math.abs(rect.width - videoRect.width) <= 24 &&
+          rect.top >= videoRect.top - 32 &&
+          rect.bottom <= videoRect.bottom + 48;
+        if (!sameMediaBand) break;
+        container = candidate;
+        candidate = candidate.parentElement;
+      }
+
+      return container;
+    }
+
+    function useViewportFallback() {
+      if (host.parentElement !== document.documentElement) document.documentElement.appendChild(host);
+      host.style.position = "fixed";
+      host.style.margin = "0";
+      host.style.left = "50%";
+      host.style.width = "min(760px, calc(100vw - 32px))";
+      host.style.top = `${Math.max(16, innerHeight - host.offsetHeight - 72)}px`;
+      host.style.transform = "translateX(-50%)";
+    }
+
     function reposition() {
       if (host.style.display === "none") return;
       const anchor = findAnchorVideo();
       if (!anchor) {
-        host.style.left = "50%";
-        host.style.width = "min(760px, calc(100vw - 32px))";
-        host.style.top = `${Math.max(16, innerHeight - host.offsetHeight - 72)}px`;
-        host.style.transform = "translateX(-50%)";
+        useViewportFallback();
         return;
       }
 
-      const margin = 10;
-      const left = Math.max(8, anchor.rect.left);
-      const width = Math.min(anchor.rect.width, innerWidth - left - 8);
-      host.style.left = `${left}px`;
-      host.style.width = `${width}px`;
+      const mediaContainer = findFlowContainer(anchor.video, anchor.rect);
+      if (!mediaContainer.parentElement) {
+        useViewportFallback();
+        return;
+      }
+      if (host.previousElementSibling !== mediaContainer) mediaContainer.insertAdjacentElement("afterend", host);
+      host.style.position = "relative";
+      host.style.left = "0";
+      host.style.top = "auto";
+      host.style.width = "100%";
+      host.style.margin = "8px 0 4px";
       host.style.transform = "none";
-      const insideVideoBottom = anchor.rect.bottom - host.offsetHeight - margin;
-      host.style.top = `${Math.max(8, Math.min(insideVideoBottom, innerHeight - host.offsetHeight - 8))}px`;
     }
 
     function revealAndPosition() {
