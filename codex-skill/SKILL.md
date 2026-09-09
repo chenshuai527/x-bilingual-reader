@@ -59,7 +59,15 @@ For a new site:
 3. Verify initial content, newly appended content, client-side navigation, and DOM node recycling.
 4. Exclude editable fields, navigation labels, code blocks, usernames, URLs, and the extension's own UI unless the user asks to translate them.
 
-Treat video subtitles, OCR text inside images, and webpage DOM text as separate capabilities. Do not claim the default template translates video captions or image text.
+Treat video speech, existing video subtitles, OCR text inside images, and webpage DOM text as separate capabilities. Do not claim image OCR unless it is implemented.
+
+## Video speech translation
+
+When requested, use a user-supplied Groq Key for speech-to-text and keep DeepSeek as the text translation provider. Persist the Groq Key in `chrome.storage.local`, validate it against the official Groq models endpoint, never expose it to page scripts or logs, and provide a separate clear/delete action.
+
+Capture only the current tab and only after an explicit user invocation of the extension. Use the toolbar action as the guaranteed Chrome-supported start/stop path, request `activeTab`, and treat an in-page start button only as a convenience with a toolbar fallback. Use `chrome.tabCapture` plus an MV3 offscreen document, and route captured audio back through `AudioContext` so starting capture does not mute playback. Record complete WebM/Opus segments of about 6 seconds, submit them sequentially to Groq `whisper-large-v3-turbo`, specify `language=en`, and pass the previous transcript as context to reduce cut sentences. Translate non-empty transcripts with DeepSeek. Display English and Chinese through text-only DOM APIs. Provide a visible stop action and stop capture when the tab closes or the track ends. Disclose Groq's 10-second minimum billing per request when using shorter segments.
+
+Declare only `tabCapture`, `offscreen`, `https://api.groq.com/*`, and the existing narrow permissions. Disclose that audio leaves the browser while video translation is active, that both services may charge the user's accounts, and that the result is near-real-time rather than word-by-word live captions.
 
 ## Validation
 
@@ -72,7 +80,8 @@ After creating or changing a project:
 5. Exercise Key status, validation, translation, API-error mapping, and Key deletion with a mocked service-worker test; structurally inspect a generated DOCX package.
 6. Confirm the public ZIP excludes local proxy scripts, credentials, caches, and other development-only files.
 7. Give the user the exact unpacked-extension loading steps from `EXPERIMENT.md`.
-8. State clearly when live visual testing in Chrome/Edge or a real paid DeepSeek API call has not been performed.
+8. For video mode, mock-check Groq key validation, complete audio-file upload, sequential segment handling, stop behavior, and caption message delivery.
+9. State clearly when live visual testing in Chrome/Edge or real paid DeepSeek/Groq API calls have not been performed.
 
 ## Common failures and triage
 
@@ -87,6 +96,9 @@ Distinguish expected security behavior from actual defects before changing the e
 - **The Word export button is disabled:** this is expected when the collection is empty. Keep the empty-state explanation visible.
 - **Chrome local fallback cannot start:** check Translator API availability, supported language-pair status, browser version, user activation, and model-download state; do not claim every Chrome installation supports it.
 - **Older favorites disappear after the collection limit:** make the configured cap visible and warn when the oldest record is evicted instead of removing it silently.
+- **Video capture starts but the tab becomes silent:** verify the offscreen audio stream is connected to `AudioContext.destination`.
+- **No subtitle appears for 12 seconds:** confirm the video is playing with audible English, both Keys are configured, the 6-second recorder segment is a complete supported WebM file, and Groq is not rate-limiting the account.
+- **Tab capture is denied:** start only from a direct user click on the video-translation button and do not attempt silent automatic capture after page load.
 
 Prioritize model consistency, provider recovery, and a blocked translation queue ahead of cosmetic issues. When reporting a failure, include the affected page pattern, selected provider, visible error, reproduction steps, and whether the result was verified in a real browser or only with mocks.
 

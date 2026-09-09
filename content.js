@@ -3,6 +3,7 @@
 
   const UI_HOST_ID = "bilingual-reader-control-host";
   const SELECTION_HOST_ID = "bilingual-reader-selection-host";
+  const VIDEO_CAPTION_HOST_ID = "bilingual-reader-video-caption-host";
   const TRANSLATION_CLASS = "bilingual-reader-translation";
   const UI_TRANSLATION_CLASS = "bilingual-reader-ui-translation";
   const FAVORITES_KEY = "bilingualReaderFavorites";
@@ -71,12 +72,14 @@
   let queue = Promise.resolve();
   let scanTimer = null;
   let pendingSelection = null;
+  let videoTranslationActive = false;
   const sourceByElement = new WeakMap();
   const observed = new WeakSet();
   const cache = new Map();
 
   const panel = createControlPanel();
   const selectionCapture = createSelectionCapture();
+  const videoCaptions = createVideoCaptionOverlay();
   const visibilityObserver = new IntersectionObserver(
     (entries) => {
       if (!enabled) return;
@@ -104,6 +107,41 @@
     true
   );
   window.addEventListener("scroll", hideSelectionCapture, true);
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!message || typeof message.type !== "string") return;
+    if (message.type === "VIDEO_CAN_START") {
+      const hasVisibleVideo = Array.from(document.querySelectorAll("video")).some((video) => {
+        const rect = video.getBoundingClientRect();
+        return rect.width > 160 && rect.height > 90 && rect.bottom > 0 && rect.top < innerHeight;
+      });
+      sendResponse({ hasVisibleVideo });
+      return;
+    }
+    if (message.type === "VIDEO_CAPTION_UPDATE") {
+      videoCaptions.show(message.transcript, message.translation);
+      panel.videoButton.textContent = "停止视频翻译";
+      panel.videoButton.dataset.enabled = "true";
+      setStatus("视频双语字幕运行中。每约 6 秒更新一次。");
+    }
+    if (message.type === "VIDEO_CAPTION_STARTED") {
+      videoTranslationActive = true;
+      panel.videoButton.textContent = "停止视频翻译";
+      panel.videoButton.dataset.enabled = "true";
+      videoCaptions.showWaiting();
+      setStatus("正在听取英语对白，首条字幕约 6–9 秒后出现。");
+    }
+    if (message.type === "VIDEO_CAPTION_ERROR") {
+      videoCaptions.showError(humanizeError(new Error(message.error || "视频翻译失败。")));
+      setStatus(`视频翻译失败：${humanizeError(new Error(message.error || "未知错误"))}`);
+      if (/tab capture|activeTab|invoked|gesture|调用扩展|用户调用/i.test(message.error || "")) {
+        setStatus("请点击 Chrome 工具栏中的“英汉同步阅读”扩展图标启动视频翻译。");
+      }
+    }
+    if (message.type === "VIDEO_CAPTION_STOPPED") {
+      resetVideoUi(message.message || "视频翻译已停止。");
+    }
+  });
 
   async function restorePreference() {
     const { bilingualReaderEnabled = false } = await chrome.storage.local.get({
@@ -141,6 +179,8 @@
       .toggle { width: 100%; }
       .toggle[data-enabled="true"] { background: #344054; }
       .settings { width: 100%; margin-top: 7px; padding: 7px 9px; background: #eef6fd; color: #1570b8; }
+      .video { width: 100%; margin-top: 7px; background: #6941c6; }
+      .video[data-enabled="true"] { background: #344054; }
       button:disabled { opacity: .55; cursor: wait; }
       .favorite-summary { margin: 10px 0 6px; color: #344054; }
       .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
@@ -164,7 +204,11 @@
     const settingsButton = document.createElement("button");
     settingsButton.type = "button";
     settingsButton.className = "settings";
-    settingsButton.textContent = "设置 DeepSeek Key";
+    settingsButton.textContent = "设置 API Keys";
+    const videoButton = document.createElement("button");
+    videoButton.type = "button";
+    videoButton.className = "video";
+    videoButton.textContent = "开始视频翻译";
     const favoriteSummary = document.createElement("div");
     favoriteSummary.className = "favorite-summary";
     favoriteSummary.textContent = "已收藏 0 句";
@@ -179,7 +223,7 @@
     clearButton.className = "secondary danger";
     clearButton.textContent = "清空收藏";
     favoriteActions.append(exportButton, clearButton);
-    wrapper.append(title, status, button, settingsButton, favoriteSummary, favoriteActions);
+    wrapper.append(title, status, button, videoButton, settingsButton, favoriteSummary, favoriteActions);
     shadow.append(style, wrapper);
 
     button.addEventListener("click", async () => {
@@ -191,6 +235,7 @@
           await enableTranslation(true);
         }
       } catch (error) {
+        if (recoverInvalidatedExtensionContext(error)) return;
         logDetailedError("Translator initialization failed", error);
         setStatus(humanizeError(error));
       } finally {
@@ -201,11 +246,127 @@
     exportButton.addEventListener("click", exportFavorites);
     clearButton.addEventListener("click", clearFavorites);
     settingsButton.addEventListener("click", async () => {
-      const response = await chrome.runtime.sendMessage({ type: "OPEN_OPTIONS" });
-      if (!response?.ok) setStatus(`无法打开设置：${response?.error || "未知错误"}`);
+      try {
+        const response = await chrome.runtime.sendMessage({ type: "OPEN_OPTIONS" });
+        if (!response?.ok) setStatus(`无法打开设置：${response?.error || "未知错误"}`);
+      } catch (error) {
+        if (recoverInvalidatedExtensionContext(error)) return;
+        setStatus(`无法打开设置：${humanizeError(error)}`);
+      }
     });
 
-    return { host, button, settingsButton, status, favoriteSummary, exportButton, clearButton };
+    videoButton.addEventListener("click", async () => {
+      videoButton.disabled = true;
+      try {
+        if (videoTranslationActive) {
+          const response = await chrome.runtime.sendMessage({ type: "VIDEO_STOP" });
+          if (!response?.ok) throw new Error(response?.error || "停止视频翻译失败。");
+          resetVideoUi("视频翻译已停止。");
+          return;
+        }
+
+        const visibleVideo = Array.from(document.querySelectorAll("video")).find((video) => {
+          const rect = video.getBoundingClientRect();
+          return rect.width > 160 && rect.height > 90 && rect.bottom > 0 && rect.top < innerHeight;
+        });
+        if (!visibleVideo) throw new Error("请先打开并播放一个当前可见的 X 视频。");
+
+        setStatus("正在捕获当前标签页声音…若被 Chrome 拒绝，请点击浏览器工具栏中的扩展图标启动。");
+        const response = await chrome.runtime.sendMessage({ type: "VIDEO_START" });
+        if (!response?.ok) throw new Error(response?.error || "无法启动视频翻译。");
+        videoTranslationActive = true;
+        videoButton.dataset.enabled = "true";
+        videoButton.textContent = "停止视频翻译";
+        videoCaptions.showWaiting();
+        setStatus("正在听取英语对白，首条字幕约 6–9 秒后出现。");
+      } catch (error) {
+        if (recoverInvalidatedExtensionContext(error)) return;
+        setStatus(`视频翻译：${humanizeError(error)}`);
+        if (String(error?.message || "").includes("KEY_MISSING")) {
+          videoCaptions.showError("请先点击“设置 API Keys”，保存 DeepSeek 与 Groq Key。 ");
+        }
+      } finally {
+        videoButton.disabled = false;
+      }
+    });
+
+    return { host, button, videoButton, settingsButton, status, favoriteSummary, exportButton, clearButton };
+  }
+
+  function createVideoCaptionOverlay() {
+    const host = document.createElement("div");
+    host.id = VIDEO_CAPTION_HOST_ID;
+    host.style.position = "fixed";
+    host.style.left = "50%";
+    host.style.bottom = "72px";
+    host.style.transform = "translateX(-50%)";
+    host.style.zIndex = "2147483646";
+    host.style.display = "none";
+    document.documentElement.appendChild(host);
+
+    const shadow = host.attachShadow({ mode: "closed" });
+    const style = document.createElement("style");
+    style.textContent = `
+      .caption { width: min(760px, calc(100vw - 32px)); box-sizing: border-box; padding: 11px 15px;
+        border-radius: 12px; background: rgba(9,14,24,.88); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.32);
+        text-align: center; font-family: system-ui,"Microsoft YaHei",sans-serif; backdrop-filter: blur(8px); }
+      .en { color: #f2f4f7; font-size: 14px; line-height: 1.45; }
+      .zh { margin-top: 4px; color: #fff; font-size: 18px; font-weight: 750; line-height: 1.5; }
+      .hint { color: #d0d5dd; font-size: 14px; }
+      .error { color: #fda29b; font-size: 14px; }
+    `;
+    const wrapper = document.createElement("div");
+    wrapper.className = "caption";
+    const english = document.createElement("div");
+    english.className = "en";
+    const chinese = document.createElement("div");
+    chinese.className = "zh";
+    wrapper.append(english, chinese);
+    shadow.append(style, wrapper);
+
+    return {
+      show(transcript, translation) {
+        host.style.display = "block";
+        english.className = "en";
+        chinese.className = "zh";
+        english.textContent = transcript || "";
+        chinese.textContent = translation || "";
+      },
+      showWaiting() {
+        host.style.display = "block";
+        english.className = "hint";
+        chinese.className = "zh";
+        english.textContent = "正在听取当前标签页的英语对白…";
+        chinese.textContent = "首条字幕约 6–9 秒后出现";
+      },
+      showError(text) {
+        host.style.display = "block";
+        english.className = "error";
+        chinese.className = "zh";
+        english.textContent = text;
+        chinese.textContent = "";
+      },
+      hide() {
+        host.style.display = "none";
+        english.textContent = "";
+        chinese.textContent = "";
+      }
+    };
+  }
+
+  function resetVideoUi(message) {
+    videoTranslationActive = false;
+    panel.videoButton.dataset.enabled = "false";
+    panel.videoButton.textContent = "开始视频翻译";
+    videoCaptions.hide();
+    setStatus(message);
+  }
+
+  function recoverInvalidatedExtensionContext(error) {
+    if (!String(error?.message || error).includes("Extension context invalidated")) return false;
+    setStatus("插件刚刚更新，正在自动刷新 X 页面…");
+    setTimeout(() => location.reload(), 180);
+    return true;
   }
 
   function createSelectionCapture() {
@@ -725,6 +886,14 @@
     if (message.includes("DEEPSEEK_RATE_LIMIT")) return "DeepSeek 请求过于频繁，请稍后重试。";
     if (message.includes("DEEPSEEK_API_UNAVAILABLE")) return "DeepSeek API 暂时无法连接，请检查网络或设置。";
     if (message.includes("DEEPSEEK_TRANSLATE_FAILED")) return "DeepSeek 翻译失败，请检查 Key、账户余额或网络。";
+    if (message.includes("GROQ_KEY_MISSING")) return "尚未配置 Groq Key，请点击“设置 API Keys”。";
+    if (message.includes("GROQ_AUTH_INVALID")) return "Groq Key 无效或已撤销，请在设置页重新连接。";
+    if (message.includes("GROQ_RATE_LIMIT")) return "Groq 语音识别请求过于频繁或额度不足，请稍后重试。";
+    if (message.includes("GROQ_AUDIO_TOO_LARGE")) return "视频音频片段过大，请停止后重试。";
+    if (message.includes("GROQ_API_ERROR")) return "Groq 语音识别失败，请检查 Key、额度或网络。";
+    if (/tab capture|activeTab|invoked|gesture|调用扩展|用户调用/i.test(message)) {
+      return "Chrome 要求从工具栏启动：请点击浏览器右上角的“英汉同步阅读”扩展图标。";
+    }
     if (message.includes("NO_TRANSLATION_PROVIDER")) return "当前没有可用翻译模型。";
     if (message.includes("UNSUPPORTED_TRANSLATOR")) return "请使用支持 Translator API 的桌面版 Chrome 138 或更高版本。";
     if (message.includes("UNAVAILABLE_LANGUAGE_PAIR")) return "当前浏览器无法使用英译中语言包。";

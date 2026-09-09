@@ -15,7 +15,7 @@
         <h1>连接你的 DeepSeek API</h1>
         <p class="lede">无需 Node 或本地代理。Key 会保存在当前 Chrome 浏览器中，并且只发送给 DeepSeek 官方 API。</p>
       </div>
-      <span class="session-badge">本机长期保存</span>
+      <span class="session-badge">两个 Key 均在本机长期保存</span>
     </header>
 
     <section class="card" aria-labelledby="connection-title">
@@ -44,13 +44,43 @@
       <div id="message" class="message" role="status" aria-live="polite"></div>
     </section>
 
+    <section class="card" aria-labelledby="groq-title">
+      <div class="section-heading">
+        <div>
+          <h2 id="groq-title">Groq 视频语音识别</h2>
+          <p>用于把 X 视频中的英语对白识别成英文，再交给 DeepSeek 翻译。</p>
+        </div>
+        <div class="connection-state" id="groq-connection-state" data-state="idle">
+          <span class="state-dot" aria-hidden="true"></span>
+          <span id="groq-connection-label">正在检查…</span>
+        </div>
+      </div>
+
+      <label for="groq-api-key">Groq API Key</label>
+      <div class="key-row">
+        <input id="groq-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="粘贴完整的 Groq API Key（通常以 gsk_ 开头）">
+        <button id="groq-toggle-visibility" class="icon-button" type="button" aria-label="显示 Groq Key">显示</button>
+      </div>
+      <p class="hint">视频翻译开启期间，当前标签页约每 6 秒的音频片段会发送到 Groq 官方 API。</p>
+
+      <div class="actions">
+        <button id="groq-save-key" class="primary" type="button">验证并永久保存</button>
+        <button id="groq-delete-key" class="secondary" type="button">断开并清除 Key</button>
+      </div>
+      <div id="groq-message" class="message" role="status" aria-live="polite"></div>
+    </section>
+
     <section class="card compact" aria-labelledby="flow-title">
       <h2 id="flow-title">翻译时会发生什么</h2>
       <div class="flow" aria-label="数据流">
         <span>X 页面英文</span><b>→</b><span>扩展后台</span><b>→</b><span>DeepSeek 官方 API</span><b>→</b><span>中文译文</span>
       </div>
+      <div class="flow" aria-label="视频字幕数据流">
+        <span>X 视频声音</span><b>→</b><span>Groq Whisper</span><b>→</b><span>DeepSeek</span><b>→</b><span>双语字幕</span>
+      </div>
       <ul>
         <li>只在启用英汉同步后发送需要翻译的网页文字。</li>
+        <li>只有点击“开始视频翻译”后才会捕获当前 X 标签页的声音。</li>
         <li>收藏内容和导出的 Word 文档保留在用户本机。</li>
         <li>扩展开发者不接收 Key、网页文字或收藏内容。</li>
       </ul>
@@ -60,6 +90,8 @@
       <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer">创建 DeepSeek API Key</a>
       <span>·</span>
       <a href="https://api-docs.deepseek.com/" target="_blank" rel="noreferrer">DeepSeek API 文档</a>
+      <span>·</span>
+      <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer">创建 Groq API Key</a>
     </footer>
   </main>
 </body>

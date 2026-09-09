@@ -7,14 +7,25 @@ const toggleButton = document.getElementById("toggle-visibility");
 const message = document.getElementById("message");
 const connectionState = document.getElementById("connection-state");
 const connectionLabel = document.getElementById("connection-label");
+const groqInput = document.getElementById("groq-api-key");
+const groqSaveButton = document.getElementById("groq-save-key");
+const groqDeleteButton = document.getElementById("groq-delete-key");
+const groqToggleButton = document.getElementById("groq-toggle-visibility");
+const groqMessage = document.getElementById("groq-message");
+const groqConnectionState = document.getElementById("groq-connection-state");
+const groqConnectionLabel = document.getElementById("groq-connection-label");
 let isConfigured = false;
+let isGroqConfigured = false;
 const hasExtensionRuntime = Boolean(globalThis.chrome?.runtime?.sendMessage);
 
 if (hasExtensionRuntime) {
   refreshStatus();
+  refreshGroqStatus();
 } else {
   connectionLabel.textContent = "预览模式";
+  groqConnectionLabel.textContent = "预览模式";
   setMessage("请从 Chrome 扩展的“选项”页面打开并配置。", "idle");
+  setGroqMessage("请从 Chrome 扩展的“选项”页面打开并配置。", "idle");
 }
 
 toggleButton.addEventListener("click", () => {
@@ -23,6 +34,14 @@ toggleButton.addEventListener("click", () => {
   toggleButton.textContent = showing ? "显示" : "隐藏";
   toggleButton.setAttribute("aria-label", showing ? "显示 Key" : "隐藏 Key");
   input.focus();
+});
+
+groqToggleButton.addEventListener("click", () => {
+  const showing = groqInput.type === "text";
+  groqInput.type = showing ? "password" : "text";
+  groqToggleButton.textContent = showing ? "显示" : "隐藏";
+  groqToggleButton.setAttribute("aria-label", showing ? "显示 Groq Key" : "隐藏 Groq Key");
+  groqInput.focus();
 });
 
 saveButton.addEventListener("click", async () => {
@@ -79,6 +98,60 @@ deleteButton.addEventListener("click", async () => {
   }
 });
 
+groqSaveButton.addEventListener("click", async () => {
+  if (!hasExtensionRuntime) {
+    setGroqMessage("当前是静态预览，请从 Chrome 扩展选项页配置。", "error");
+    return;
+  }
+  const apiKey = sanitizeApiKey(groqInput.value);
+  if (!apiKey) {
+    setGroqMessage("请先粘贴完整的 Groq API Key。", "error");
+    groqInput.focus();
+    return;
+  }
+  if (apiKey.includes("*")) {
+    setGroqMessage("不能使用带 ***** 的脱敏 Key，请创建并复制新的完整 Key。", "error");
+    groqInput.focus();
+    return;
+  }
+
+  setGroqBusy(true);
+  setGroqMessage("正在连接 Groq 官方 API…", "idle");
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GROQ_SAVE_KEY", apiKey });
+    if (!response?.ok) {
+      setGroqConnection(Boolean(response?.configured), !response?.configured);
+      setGroqMessage(humanizeGroqError(new Error(response?.error || "连接失败。")), "error");
+      return;
+    }
+    groqInput.value = "";
+    setGroqConnection(true);
+    setGroqMessage(`连接成功，语音模型：${response.model || "whisper-large-v3-turbo"}。`, "success");
+  } catch (error) {
+    setGroqConnection(false, true);
+    setGroqMessage(humanizeGroqError(error), "error");
+  } finally {
+    setGroqBusy(false);
+  }
+});
+
+groqDeleteButton.addEventListener("click", async () => {
+  if (!hasExtensionRuntime) return;
+  if (!window.confirm("确定断开 Groq 并清除浏览器中保存的 Key 吗？")) return;
+  setGroqBusy(true);
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GROQ_DELETE_KEY" });
+    if (!response?.ok) throw new Error(response?.error || "清除失败。");
+    groqInput.value = "";
+    setGroqConnection(false);
+    setGroqMessage("已断开并从当前 Chrome 中清除 Groq Key。", "success");
+  } catch (error) {
+    setGroqMessage(error?.message || String(error), "error");
+  } finally {
+    setGroqBusy(false);
+  }
+});
+
 async function refreshStatus() {
   try {
     const response = await chrome.runtime.sendMessage({ type: "DEEPSEEK_KEY_STATUS" });
@@ -91,6 +164,22 @@ async function refreshStatus() {
   } catch (error) {
     setConnection(false, true);
     setMessage(error?.message || String(error), "error");
+  }
+}
+
+async function refreshGroqStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GROQ_KEY_STATUS" });
+    setGroqConnection(Boolean(response?.configured));
+    setGroqMessage(
+      response?.configured
+        ? "Groq Key 已由当前 Chrome 长期保存，可用于视频语音识别。"
+        : "尚未连接。视频翻译功能需要 Groq Key。",
+      response?.configured ? "success" : "idle"
+    );
+  } catch (error) {
+    setGroqConnection(false, true);
+    setGroqMessage(error?.message || String(error), "error");
   }
 }
 
@@ -107,9 +196,27 @@ function setBusy(busy) {
   toggleButton.disabled = busy;
 }
 
+function setGroqConnection(configured, failed = false) {
+  isGroqConfigured = configured;
+  groqConnectionState.dataset.state = configured ? "success" : failed ? "error" : "idle";
+  groqConnectionLabel.textContent = configured ? "已连接" : failed ? "连接失败" : "未连接";
+  groqDeleteButton.disabled = !configured;
+}
+
+function setGroqBusy(busy) {
+  groqSaveButton.disabled = busy;
+  groqDeleteButton.disabled = busy || !isGroqConfigured;
+  groqToggleButton.disabled = busy;
+}
+
 function setMessage(text, state) {
   message.textContent = text;
   message.dataset.state = state;
+}
+
+function setGroqMessage(text, state) {
+  groqMessage.textContent = text;
+  groqMessage.dataset.state = state;
 }
 
 function sanitizeApiKey(value) {
@@ -124,4 +231,12 @@ function humanizeError(error) {
   if (text.includes("DEEPSEEK_BALANCE")) return "DeepSeek API 账户余额不足，请充值后重试。";
   if (text.includes("DEEPSEEK_RATE_LIMIT")) return "DeepSeek 请求过于频繁，请稍后重试。";
   return text.replace(/^DEEPSEEK_API_ERROR:\s*/, "");
+}
+
+function humanizeGroqError(error) {
+  const text = String(error?.message || error);
+  if (text.includes("GROQ_AUTH_INVALID")) return "Groq Key 无效或已撤销，请创建新的完整 Key。";
+  if (text.includes("GROQ_MODEL_UNAVAILABLE")) return "当前 Groq 账户无法使用 Whisper Large V3 Turbo。";
+  if (text.includes("GROQ_RATE_LIMIT")) return "Groq 请求过于频繁或额度不足，请稍后重试。";
+  return text.replace(/^GROQ_API_ERROR:\s*/, "");
 }
