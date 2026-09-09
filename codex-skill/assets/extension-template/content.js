@@ -107,6 +107,8 @@
     true
   );
   window.addEventListener("scroll", hideSelectionCapture, true);
+  window.addEventListener("scroll", () => videoCaptions.reposition(), true);
+  window.addEventListener("resize", () => videoCaptions.reposition());
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || typeof message.type !== "string") return;
@@ -297,17 +299,18 @@
     const host = document.createElement("div");
     host.id = VIDEO_CAPTION_HOST_ID;
     host.style.position = "fixed";
-    host.style.left = "50%";
-    host.style.bottom = "72px";
-    host.style.transform = "translateX(-50%)";
+    host.style.left = "16px";
+    host.style.top = "auto";
+    host.style.width = "min(760px, calc(100vw - 32px))";
     host.style.zIndex = "2147483646";
     host.style.display = "none";
+    host.style.pointerEvents = "none";
     document.documentElement.appendChild(host);
 
     const shadow = host.attachShadow({ mode: "closed" });
     const style = document.createElement("style");
     style.textContent = `
-      .caption { width: min(760px, calc(100vw - 32px)); box-sizing: border-box; padding: 11px 15px;
+      .caption { width: 100%; box-sizing: border-box; padding: 11px 15px;
         border-radius: 12px; background: rgba(9,14,24,.88); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.32);
         text-align: center; font-family: system-ui,"Microsoft YaHei",sans-serif; backdrop-filter: blur(8px); }
       .en { color: #f2f4f7; font-size: 14px; line-height: 1.45; }
@@ -324,23 +327,59 @@
     wrapper.append(english, chinese);
     shadow.append(style, wrapper);
 
+    function findAnchorVideo() {
+      return Array.from(document.querySelectorAll("video"))
+        .map((video) => ({ video, rect: video.getBoundingClientRect() }))
+        .filter(({ rect }) => rect.width > 160 && rect.height > 90 && rect.bottom > 0 && rect.top < innerHeight)
+        .sort((left, right) => {
+          const playbackScore = Number(!right.video.paused) - Number(!left.video.paused);
+          return playbackScore || right.rect.width * right.rect.height - left.rect.width * left.rect.height;
+        })[0] || null;
+    }
+
+    function reposition() {
+      if (host.style.display === "none") return;
+      const anchor = findAnchorVideo();
+      if (!anchor) {
+        host.style.left = "50%";
+        host.style.width = "min(760px, calc(100vw - 32px))";
+        host.style.top = `${Math.max(16, innerHeight - host.offsetHeight - 72)}px`;
+        host.style.transform = "translateX(-50%)";
+        return;
+      }
+
+      const margin = 10;
+      const left = Math.max(8, anchor.rect.left);
+      const width = Math.min(anchor.rect.width, innerWidth - left - 8);
+      host.style.left = `${left}px`;
+      host.style.width = `${width}px`;
+      host.style.transform = "none";
+      const insideVideoBottom = anchor.rect.bottom - host.offsetHeight - margin;
+      host.style.top = `${Math.max(8, Math.min(insideVideoBottom, innerHeight - host.offsetHeight - 8))}px`;
+    }
+
+    function revealAndPosition() {
+      host.style.display = "block";
+      requestAnimationFrame(reposition);
+    }
+
     return {
       show(transcript, translation) {
-        host.style.display = "block";
+        revealAndPosition();
         english.className = "en";
         chinese.className = "zh";
         english.textContent = transcript || "";
         chinese.textContent = translation || "";
       },
       showWaiting() {
-        host.style.display = "block";
+        revealAndPosition();
         english.className = "hint";
         chinese.className = "zh";
         english.textContent = "正在听取当前标签页的英语对白…";
         chinese.textContent = "首条字幕约 6–9 秒后出现";
       },
       showError(text) {
-        host.style.display = "block";
+        revealAndPosition();
         english.className = "error";
         chinese.className = "zh";
         english.textContent = text;
@@ -350,7 +389,8 @@
         host.style.display = "none";
         english.textContent = "";
         chinese.textContent = "";
-      }
+      },
+      reposition
     };
   }
 

@@ -67,6 +67,8 @@ When requested, use a user-supplied Groq Key for speech-to-text and keep DeepSee
 
 Capture only the current tab and only after an explicit user invocation of the extension. Use the toolbar action as the guaranteed Chrome-supported start/stop path, request `activeTab`, and treat an in-page start button only as a convenience with a toolbar fallback. Use `chrome.tabCapture` plus an MV3 offscreen document, and route captured audio back through `AudioContext` so starting capture does not mute playback. Record complete WebM/Opus segments of about 6 seconds, submit them sequentially to Groq `whisper-large-v3-turbo`, specify `language=en`, and pass the previous transcript as context to reduce cut sentences. Translate non-empty transcripts with DeepSeek. Display English and Chinese through text-only DOM APIs. Provide a visible stop action and stop capture when the tab closes or the track ends. Disclose Groq's 10-second minimum billing per request when using shorter segments.
 
+Anchor the bilingual caption overlay to the largest visible playing video. Match its left edge and width, place the overlay near the video's lower edge, and recalculate on scroll and resize. Fall back to a centered viewport overlay only when no visible video can be found.
+
 Declare only `tabCapture`, `offscreen`, `https://api.groq.com/*`, and the existing narrow permissions. Disclose that audio leaves the browser while video translation is active, that both services may charge the user's accounts, and that the result is near-real-time rather than word-by-word live captions.
 
 ## Validation

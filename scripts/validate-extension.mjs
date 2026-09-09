@@ -8,7 +8,7 @@ const root = path.resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 
 assert.equal(manifest.manifest_version, 3);
-assert.equal(manifest.version, "0.7.2");
+assert.equal(manifest.version, "0.7.3");
 for (const permission of ["storage", "activeTab", "tabCapture", "offscreen"]) {
   assert(manifest.permissions.includes(permission), `missing permission: ${permission}`);
 }
