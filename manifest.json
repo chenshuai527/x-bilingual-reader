@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "英汉同步阅读实验版",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "X 英汉同步阅读、视频双语字幕、划词收藏和 DOCX 导出；用户自备 DeepSeek 与 Groq Key。",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "activeTab", "tabCapture", "offscreen"],

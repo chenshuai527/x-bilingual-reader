@@ -121,17 +121,17 @@
       return;
     }
     if (message.type === "VIDEO_CAPTION_UPDATE") {
-      videoCaptions.show(message.transcript, message.translation);
+      videoCaptions.show(message.transcript, message.translation, message.translating);
       panel.videoButton.textContent = "停止视频翻译";
       panel.videoButton.dataset.enabled = "true";
-      setStatus("视频双语字幕运行中。每约 6 秒更新一次。");
+      setStatus("视频双语字幕运行中。每约 4 秒更新一次。");
     }
     if (message.type === "VIDEO_CAPTION_STARTED") {
       videoTranslationActive = true;
       panel.videoButton.textContent = "停止视频翻译";
       panel.videoButton.dataset.enabled = "true";
       videoCaptions.showWaiting();
-      setStatus("正在听取英语对白，首条字幕约 6–9 秒后出现。");
+      setStatus("正在听取英语对白，首条字幕约 4–7 秒后出现。");
     }
     if (message.type === "VIDEO_CAPTION_ERROR") {
       videoCaptions.showError(humanizeError(new Error(message.error || "视频翻译失败。")));
@@ -280,7 +280,7 @@
         videoButton.dataset.enabled = "true";
         videoButton.textContent = "停止视频翻译";
         videoCaptions.showWaiting();
-        setStatus("正在听取英语对白，首条字幕约 6–9 秒后出现。");
+        setStatus("正在听取英语对白，首条字幕约 4–7 秒后出现。");
       } catch (error) {
         if (recoverInvalidatedExtensionContext(error)) return;
         setStatus(`视频翻译：${humanizeError(error)}`);
@@ -364,19 +364,19 @@
     }
 
     return {
-      show(transcript, translation) {
+      show(transcript, translation, translating = false) {
         revealAndPosition();
         english.className = "en";
         chinese.className = "zh";
         english.textContent = transcript || "";
-        chinese.textContent = translation || "";
+        chinese.textContent = translation || (translating ? "翻译中…" : "");
       },
       showWaiting() {
         revealAndPosition();
         english.className = "hint";
         chinese.className = "zh";
         english.textContent = "正在听取当前标签页的英语对白…";
-        chinese.textContent = "首条字幕约 6–9 秒后出现";
+        chinese.textContent = "首条字幕约 4–7 秒后出现";
       },
       showError(text) {
         revealAndPosition();

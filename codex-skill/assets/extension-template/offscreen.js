@@ -1,6 +1,6 @@
 "use strict";
 
-const SEGMENT_MS = 6000;
+const SEGMENT_MS = 4000;
 let mediaStream = null;
 let audioContext = null;
 let recorder = null;
@@ -8,6 +8,7 @@ let segmentTimer = null;
 let captureTabId = null;
 let captureSessionId = null;
 let running = false;
+let segmentSequence = 0;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id || !message || typeof message.type !== "string") return;
@@ -42,6 +43,7 @@ async function startCapture({ streamId, tabId, sessionId }) {
   captureTabId = tabId;
   captureSessionId = sessionId;
   running = true;
+  segmentSequence = 0;
 
   // Capturing a tab mutes its normal playback unless the captured audio is routed back.
   audioContext = new AudioContext();
@@ -86,7 +88,7 @@ function recordNextSegment() {
 
     if (running) recordNextSegment();
     if (blob.size > 256 && Number.isInteger(tabId) && sessionId) {
-      sendAudioSegment(blob, tabId, sessionId).catch(() => {});
+      sendAudioSegment(blob, tabId, sessionId, segmentSequence++).catch(() => {});
     }
   });
 
@@ -96,7 +98,7 @@ function recordNextSegment() {
   }, SEGMENT_MS);
 }
 
-async function sendAudioSegment(blob, tabId, sessionId) {
+async function sendAudioSegment(blob, tabId, sessionId, sequence) {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   let binary = "";
   const step = 0x8000;
@@ -108,6 +110,7 @@ async function sendAudioSegment(blob, tabId, sessionId) {
     type: "VIDEO_AUDIO_SEGMENT",
     tabId,
     sessionId,
+    sequence,
     mimeType: blob.type || "audio/webm",
     audioBase64: btoa(binary)
   });

@@ -8,7 +8,7 @@ const root = path.resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 
 assert.equal(manifest.manifest_version, 3);
-assert.equal(manifest.version, "0.7.3");
+assert.equal(manifest.version, "0.7.4");
 for (const permission of ["storage", "activeTab", "tabCapture", "offscreen"]) {
   assert(manifest.permissions.includes(permission), `missing permission: ${permission}`);
 }
@@ -18,6 +18,7 @@ for (const host of ["https://api.deepseek.com/*", "https://api.groq.com/*"]) {
 for (const file of ["background.js", "content.js", "content.css", "docx.js", "options.html", "offscreen.html", "offscreen.js"]) {
   assert(fs.existsSync(path.join(root, file)), `missing extension file: ${file}`);
 }
+assert.match(fs.readFileSync(path.join(root, "offscreen.js"), "utf8"), /const SEGMENT_MS = 4000;/);
 
 const stored = new Map();
 const tabMessages = [];
@@ -156,19 +157,22 @@ await send(
     type: "VIDEO_AUDIO_SEGMENT",
     tabId: 42,
     sessionId: started.sessionId,
+    sequence: 0,
     mimeType: "audio/webm",
     audioBase64: btoa("mock webm audio")
   },
   { id: chrome.runtime.id, url: `chrome-extension://${chrome.runtime.id}/offscreen.html` }
 );
 
-for (let attempts = 0; attempts < 20 && !tabMessages.some(({ message }) => message.type === "VIDEO_CAPTION_UPDATE"); attempts += 1) {
+for (let attempts = 0; attempts < 20 && tabMessages.filter(({ message }) => message.type === "VIDEO_CAPTION_UPDATE").length < 2; attempts += 1) {
   await new Promise((resolve) => setTimeout(resolve, 10));
 }
-const caption = tabMessages.find(({ message }) => message.type === "VIDEO_CAPTION_UPDATE");
-assert(caption, "caption update was not delivered");
-assert.equal(caption.message.transcript, "Learning happens through practice.");
-assert.equal(caption.message.translation, "学习来自实践。");
+const captions = tabMessages.filter(({ message }) => message.type === "VIDEO_CAPTION_UPDATE");
+assert(captions.length >= 2, "partial and translated captions were not delivered");
+assert.equal(captions[0].message.transcript, "Learning happens through practice.");
+assert.equal(captions[0].message.translating, true);
+assert.equal(captions.at(-1).message.translation, "学习来自实践。");
+assert.equal(captions.at(-1).message.translating, false);
 
 await actionListener(pageSender.tab);
 assert(tabMessages.some(({ message }) => message.type === "VIDEO_CAPTION_STOPPED"));

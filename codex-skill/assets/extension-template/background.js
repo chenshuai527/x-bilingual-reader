@@ -12,8 +12,9 @@ const TRANSCRIBE_TIMEOUT_MS = 45000;
 const MAX_SOURCE_LENGTH = 12000;
 let activeVideoTabId = null;
 let activeVideoSessionId = null;
-let videoSegmentQueue = Promise.resolve();
 let videoTranscriptPrompt = "";
+let videoSegmentsInFlight = 0;
+let latestVideoCaptionSequence = -1;
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") chrome.runtime.openOptionsPage();
@@ -191,13 +192,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const payload = {
       tabId: message.tabId,
       sessionId: message.sessionId,
+      sequence: Number.isInteger(message.sequence) ? message.sequence : 0,
       mimeType: message.mimeType,
       audioBase64: message.audioBase64
     };
-    videoSegmentQueue = videoSegmentQueue
-      .then(() => processVideoSegment(payload))
-      .catch((error) => notifyVideoError(payload.tabId, error));
-    sendResponse({ ok: true, queued: true });
+    if (videoSegmentsInFlight >= 2) {
+      sendResponse({ ok: true, skipped: true });
+      return;
+    }
+    videoSegmentsInFlight += 1;
+    processVideoSegment(payload)
+      .then(() => sendResponse({ ok: true }))
+      .catch(async (error) => {
+        await notifyVideoError(payload.tabId, error);
+        sendResponse({ ok: false, error: safeErrorMessage(error) });
+      })
+      .finally(() => {
+        videoSegmentsInFlight = Math.max(0, videoSegmentsInFlight - 1);
+      });
+    return true;
   }
 
   if (message.type === "VIDEO_CAPTURE_ENDED") {
@@ -260,8 +273,9 @@ async function startVideoTranslation(tab) {
 
   activeVideoTabId = tabId;
   activeVideoSessionId = sessionId;
-  videoSegmentQueue = Promise.resolve();
   videoTranscriptPrompt = "";
+  videoSegmentsInFlight = 0;
+  latestVideoCaptionSequence = -1;
   return { sessionId, model: GROQ_MODEL };
 }
 
@@ -277,8 +291,9 @@ async function stopVideoTranslation(requestingTabId) {
 function clearActiveVideoState() {
   activeVideoTabId = null;
   activeVideoSessionId = null;
-  videoSegmentQueue = Promise.resolve();
   videoTranscriptPrompt = "";
+  videoSegmentsInFlight = 0;
+  latestVideoCaptionSequence = -1;
 }
 
 async function ensureOffscreenDocument() {
@@ -290,7 +305,7 @@ async function ensureOffscreenDocument() {
   });
 }
 
-async function processVideoSegment({ tabId, sessionId, mimeType, audioBase64 }) {
+async function processVideoSegment({ tabId, sessionId, sequence, mimeType, audioBase64 }) {
   if (tabId !== activeVideoTabId || sessionId !== activeVideoSessionId || !audioBase64) return;
   const [groqKey, deepSeekKey] = await Promise.all([getStoredGroqApiKey(), getStoredApiKey()]);
   if (!groqKey || !deepSeekKey) throw new Error("视频翻译所需的 API Key 已被清除。");
@@ -298,15 +313,28 @@ async function processVideoSegment({ tabId, sessionId, mimeType, audioBase64 }) 
   const audioBlob = base64ToBlob(audioBase64, mimeType || "audio/webm");
   const transcript = await transcribeWithGroq(audioBlob, groqKey, videoTranscriptPrompt);
   if (!transcript || tabId !== activeVideoTabId || sessionId !== activeVideoSessionId) return;
+  if (sequence < latestVideoCaptionSequence) return;
+  latestVideoCaptionSequence = sequence;
   videoTranscriptPrompt = transcript.slice(-500);
+  await chrome.tabs.sendMessage(tabId, {
+    type: "VIDEO_CAPTION_UPDATE",
+    sessionId,
+    sequence,
+    transcript,
+    translation: "",
+    translating: true
+  });
   const { translation } = await translateWithDeepSeek(transcript, deepSeekKey);
   if (tabId !== activeVideoTabId || sessionId !== activeVideoSessionId) return;
+  if (sequence < latestVideoCaptionSequence) return;
 
   await chrome.tabs.sendMessage(tabId, {
     type: "VIDEO_CAPTION_UPDATE",
     sessionId,
+    sequence,
     transcript,
-    translation
+    translation,
+    translating: false
   });
 }
 
@@ -366,7 +394,7 @@ async function translateWithDeepSeek(source, apiKey) {
         ],
         thinking: { type: "disabled" },
         temperature: 0.2,
-        max_tokens: 4096,
+        max_tokens: 768,
         stream: false
       })
     },
